@@ -60,6 +60,11 @@ namespace marching_2d
     }
 
     //==============================================================================================================================================================
+    
+    private struct CornerValues
+    {
+      public float tl, tr, bl, br;
+    }
 
     private static
       Func<CornerValues, (PointF pt1, PointF pt2)?>[]
