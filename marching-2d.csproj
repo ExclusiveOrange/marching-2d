@@ -51,6 +51,7 @@
             <SubType>Form</SubType>
         </Compile>
         <Compile Include="MarchingRectangles.cs" />
+        <Compile Include="MarchingTriangles.cs" />
         <Compile Include="Program.cs" />
         <Compile Include="Properties\AssemblyInfo.cs" />
         <Compile Include="ThirdParty\FastNoiseLite\FastNoiseLite.cs" />

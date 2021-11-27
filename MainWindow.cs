@@ -9,11 +9,12 @@ namespace marching_2d
     private const int imageWidth = 1000;
     private const int imageHeight = 1000;
     private const PixelFormat imageFormat = PixelFormat.Format32bppRgb;
-    private readonly Image image = new Bitmap(imageWidth, imageHeight, imageFormat);
+    private readonly Image imageRectangles = new Bitmap(imageWidth, imageHeight, imageFormat);
+    private readonly Image imageTriangles = new Bitmap(imageWidth, imageHeight, imageFormat);
 
-    private const float xScale = 1f;
+    private const float xScale = 5f;
     private const float xOffset = 0f;
-    private const float yScale = 1f;
+    private const float yScale = 5f;
     private const float yOffset = 0f;
 
     private const float rXScale = 1.0f / xScale;
@@ -26,31 +27,54 @@ namespace marching_2d
       MainWindow()
     {
       SetupUi();
-      Render();
+
+      fastNoise.SetNoiseType(FastNoiseLite.NoiseType.OpenSimplex2);
+      fastNoise.SetSeed(seed);
+
+      Pen pen = new Pen(Color.White, 1);
+      
+      using (var graphics = Graphics.FromImage(imageRectangles))
+        RenderRectangles(pen, graphics);
+      
+      using (var graphics = Graphics.FromImage(imageTriangles))
+        RenderTriangles(pen, graphics);
+    }
+
+    private
+      float
+      GetNoise(float x, float y) => fastNoise.GetNoise(x * rXScale + xOffset, y * rYScale + yOffset);
+
+    private
+      void
+      RenderRectangles(Pen pen, Graphics graphics)
+    {
+      MarchingRectangles.Draw(
+        new MarchingRectangles.DrawParameters
+        {
+          pen = pen,
+          graphics = graphics,
+          imageWidth = imageWidth,
+          imageHeight = imageHeight,
+          gridWidth = 100,
+          gridHeight = 100,
+          noise = GetNoise
+        });
     }
 
     private
       void
-      Render()
+      RenderTriangles(Pen pen, Graphics graphics)
     {
-      fastNoise.SetNoiseType(FastNoiseLite.NoiseType.OpenSimplex2);
-      fastNoise.SetSeed(seed);
-      
-      float noise(float x, float y) => fastNoise.GetNoise(x * rXScale + xOffset, y * rYScale + yOffset);
-
-      Pen pen = new Pen(Color.White, 1);
-      using (var graphics = Graphics.FromImage(image))
-        MarchingRectangles.Draw(
-          new MarchingRectangles.DrawParameters
-          {
-            pen = pen,
-            graphics = graphics,
-            imageWidth = imageWidth,
-            imageHeight = imageHeight,
-            gridWidth = 100,
-            gridHeight = 100,
-            noise = noise
-          });
+      MarchingTriangles.Draw(
+        new MarchingTriangles.DrawParameters
+        {
+          pen = pen,
+          graphics = graphics,
+          imageWidth = imageWidth,
+          imageHeight = imageHeight,
+          triangleSideLength = 10,
+          noise = GetNoise
+        });
     }
 
     private
@@ -58,14 +82,26 @@ namespace marching_2d
       SetupUi()
     {
       AutoScaleMode = AutoScaleMode.Font;
-      ClientSize = new Size(imageWidth, imageHeight);
+      ClientSize = new Size(imageWidth * 2, imageHeight);
+      FormBorderStyle = FormBorderStyle.FixedSingle;
       Text = @"Marching 2D";
+
+      var pictureBoxRectangles = new PictureBox();
+      pictureBoxRectangles.Size = new Size(imageWidth, imageHeight);
+      pictureBoxRectangles.Image = imageRectangles;
+      pictureBoxRectangles.Dock = DockStyle.Left;
+      // pictureBoxRectangles.Anchor = AnchorStyles.Left | AnchorStyles.Top;
+      pictureBoxRectangles.SizeMode = PictureBoxSizeMode.Zoom;
+      Controls.Add(pictureBoxRectangles);
       
-      var pictureBox = new PictureBox();
-      pictureBox.Image = image;
-      pictureBox.Dock = DockStyle.Fill;
-      pictureBox.SizeMode = PictureBoxSizeMode.Zoom;
-      Controls.Add(pictureBox);
+      var pictureBoxTriangles = new PictureBox();
+      pictureBoxTriangles.Size = new Size(imageWidth, imageHeight);
+      pictureBoxTriangles.Image = imageTriangles;
+      pictureBoxTriangles.Dock = DockStyle.Right;
+      // pictureBoxTriangles.Anchor = AnchorStyles.Right | AnchorStyles.Top;
+      pictureBoxTriangles.SizeMode = PictureBoxSizeMode.Zoom;
+      Controls.Add(pictureBoxTriangles);
+      
     }
   }
 }
