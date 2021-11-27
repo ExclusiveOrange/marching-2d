@@ -38,18 +38,21 @@ namespace marching_2d
       // 0 and 7 are ignored but it's faster to leave them in than to adjust bits
       //                       0  1  2  3  4  5  6  7
       int[] mapBitsToIndexA = {0, 0, 1, 2, 2, 1, 0, 0};
-      int[] mapBitsToIndexB = {0, 1, 2, 0, 0, 2, 1, 0};
-      int[] mapBitsToIndexC = {0, 2, 0, 1, 1, 0, 2, 0};
+      int[] mapBitsToIndexB = {0, 1, 0, 0, 0, 0, 1, 0};
+      int[] mapBitsToIndexC = {0, 2, 2, 1, 1, 2, 2, 0};
 
       float[] vals = new float[3];
       float[] xs = new float[3];
       float[] ys = new float[3];
+      
+      // DELETE
+      Pen meshPen = new Pen(Color.Chocolate, 1);
 
       void renderLine(int vertexBits, float x, float y0, float y1)
       {
         (xs[0], xs[1], xs[2]) = (x, x + p.triangleSideLength, x + 0.5f * p.triangleSideLength);
         (ys[0], ys[1], ys[2]) = (y0, y0, y1);
-
+        
         // one edge is from vals[iA] to vals[iB], the other from vals[iA] to vals[iC]
         var (ai, bi, ci) = (mapBitsToIndexA[vertexBits], mapBitsToIndexB[vertexBits], mapBitsToIndexC[vertexBits]);
 
@@ -61,6 +64,11 @@ namespace marching_2d
         var (abt, act) = (zero(vals[ai], vals[bi]), zero(vals[ai], vals[ci]));
         var (abx, aby) = (lerp(ax, bx, abt), lerp(ay, by, abt));
         var (acx, acy) = (lerp(ax, cx, act), lerp(ay, cy, act));
+
+        // DELETE
+        p.graphics.DrawLine(meshPen, ax, ay, bx, by);
+        p.graphics.DrawLine(meshPen, ax, ay, cx, cy);
+        p.graphics.DrawLine(meshPen, bx, by, cx, cy);
 
         p.graphics.DrawLine(p.pen, abx, aby, acx, acy);
       }

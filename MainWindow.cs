@@ -1,4 +1,5 @@
-﻿using System.Drawing;
+﻿using System;
+using System.Drawing;
 using System.Drawing.Imaging;
 using System.Windows.Forms;
 
@@ -9,8 +10,8 @@ namespace marching_2d
     private const int imageWidth = 1000;
     private const int imageHeight = 1000;
     private const PixelFormat imageFormat = PixelFormat.Format32bppRgb;
-    private readonly Image imageRectangles = new Bitmap(imageWidth, imageHeight, imageFormat);
-    private readonly Image imageTriangles = new Bitmap(imageWidth, imageHeight, imageFormat);
+    private readonly Bitmap imageRectangles = new Bitmap(imageWidth, imageHeight, imageFormat);
+    private readonly Bitmap imageTriangles = new Bitmap(imageWidth, imageHeight, imageFormat);
 
     private const float xScale = 5f;
     private const float xOffset = 0f;
@@ -23,6 +24,13 @@ namespace marching_2d
     private readonly FastNoiseLite fastNoise = new FastNoiseLite();
     private const int seed = 1337;
 
+    private static
+      float
+      clamp(float value, float min, float max)
+    {
+      return value < min ? min : value > max ? max : value;
+    }
+
     public
       MainWindow()
     {
@@ -30,12 +38,22 @@ namespace marching_2d
 
       fastNoise.SetNoiseType(FastNoiseLite.NoiseType.OpenSimplex2);
       fastNoise.SetSeed(seed);
+      
+      for (int y = 0; y < imageHeight; ++y)
+        for (int x = 0; x < imageWidth; ++x)
+        {
+          float noise = GetNoise(x, y);
+          float snoise = clamp(0.5f + 5f * noise, 0f, 1f);
+          int bnoise = (int)(255f * snoise);
+          imageRectangles.SetPixel(x, y, Color.FromArgb(bnoise, bnoise, bnoise));
+          imageTriangles.SetPixel(x, y, Color.FromArgb(bnoise, bnoise, bnoise));
+        }
 
-      Pen pen = new Pen(Color.White, 1);
+      Pen pen = new Pen(Color.Fuchsia, 2);
       
       using (var graphics = Graphics.FromImage(imageRectangles))
         RenderRectangles(pen, graphics);
-      
+
       using (var graphics = Graphics.FromImage(imageTriangles))
         RenderTriangles(pen, graphics);
     }
@@ -101,7 +119,6 @@ namespace marching_2d
       // pictureBoxTriangles.Anchor = AnchorStyles.Right | AnchorStyles.Top;
       pictureBoxTriangles.SizeMode = PictureBoxSizeMode.Zoom;
       Controls.Add(pictureBoxTriangles);
-      
     }
   }
 }

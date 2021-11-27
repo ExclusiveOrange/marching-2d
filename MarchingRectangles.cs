@@ -38,6 +38,9 @@ namespace marching_2d
       float[] rowB = new float[p.gridWidth + 1];
 
       fillRow(rowB, 0);
+      
+      // DELETE
+      Pen meshPen = new Pen(Color.Chocolate, 1);
 
       for (int y = 0; y < p.gridHeight; ++y)
       {
@@ -48,7 +51,14 @@ namespace marching_2d
         {
           var cornerValues = new CornerValues {tl = rowA[x], tr = rowA[x + 1], bl = rowB[x], br = rowB[x + 1]};
           if (tryGetLocalLine(cornerValues) is (PointF, PointF) localLine)
+          {
+            p.graphics.DrawLine(meshPen, localToImage(x, y, new PointF(0, 0)), localToImage(x, y, new PointF(1, 0)));
+            p.graphics.DrawLine(meshPen, localToImage(x, y, new PointF(0, 0)), localToImage(x, y, new PointF(0, 1)));
+            p.graphics.DrawLine(meshPen, localToImage(x, y, new PointF(1, 1)), localToImage(x, y, new PointF(1, 0)));
+            p.graphics.DrawLine(meshPen, localToImage(x, y, new PointF(1, 1)), localToImage(x, y, new PointF(0, 1)));
+            
             p.graphics.DrawLine(p.pen, localToImage(x, y, localLine.pt1), localToImage(x, y, localLine.pt2));
+          }
         }
       }
     }
