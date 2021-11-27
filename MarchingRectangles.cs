@@ -3,7 +3,7 @@ using System.Drawing;
 
 namespace marching_2d
 {
-  internal class MarchingSquares
+  internal class MarchingRectangles
   {
     public struct DrawParameters
     {
@@ -37,34 +37,25 @@ namespace marching_2d
       float[] rowA = new float[p.gridWidth + 1];
       float[] rowB = new float[p.gridWidth + 1];
 
-      fillRow(rowA, 0);
+      fillRow(rowB, 0);
 
       for (int y = 0; y < p.gridHeight; ++y)
       {
-        if (y > 0)
-          (rowB, rowA) = (rowA, rowB);
-
-        fillRow(rowB, y);
+        (rowB, rowA) = (rowA, rowB);
+        fillRow(rowB, y + 1);
 
         for (int x = 0; x < p.gridWidth; ++x)
         {
-          var cellValues = new CornerValues {tl = rowA[x], tr = rowA[x + 1], bl = rowB[x], br = rowB[x + 1]};
-          if (tryGetLocalLine(cellValues) is (PointF, PointF) localLine)
-          {
-            var pt1 = localToImage(x, y, localLine.pt1);
-            var pt2 = localToImage(x, y, localLine.pt2);
-            p.graphics.DrawLine(p.pen, pt1, pt2);
-          }
+          var cornerValues = new CornerValues {tl = rowA[x], tr = rowA[x + 1], bl = rowB[x], br = rowB[x + 1]};
+          if (tryGetLocalLine(cornerValues) is (PointF, PointF) localLine)
+            p.graphics.DrawLine(p.pen, localToImage(x, y, localLine.pt1), localToImage(x, y, localLine.pt2));
         }
       }
     }
 
     //==============================================================================================================================================================
     
-    private struct CornerValues
-    {
-      public float tl, tr, bl, br;
-    }
+    private struct CornerValues { public float tl, tr, bl, br; }
 
     private static
       Func<CornerValues, (PointF pt1, PointF pt2)?>[]

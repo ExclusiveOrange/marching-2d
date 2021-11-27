@@ -40,8 +40,8 @@ namespace marching_2d
 
       Pen pen = new Pen(Color.White, 1);
       using (var graphics = Graphics.FromImage(image))
-        MarchingSquares.Draw(
-          new MarchingSquares.DrawParameters
+        MarchingRectangles.Draw(
+          new MarchingRectangles.DrawParameters
           {
             pen = pen,
             graphics = graphics,
@@ -59,7 +59,7 @@ namespace marching_2d
     {
       AutoScaleMode = AutoScaleMode.Font;
       ClientSize = new Size(imageWidth, imageHeight);
-      Text = @"Marching Squares";
+      Text = @"Marching 2D";
       
       var pictureBox = new PictureBox();
       pictureBox.Image = image;
