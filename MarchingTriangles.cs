@@ -12,7 +12,7 @@ namespace marching_2d
       public int imageWidth;
       public int imageHeight;
       public int triangleSideLength;
-      public Func<float, float, float> noise;
+      public FieldFunction fieldFunction;
     }
 
     public static
@@ -32,7 +32,7 @@ namespace marching_2d
         int numWide = even ? numTrianglesWideEvenRows : numTrianglesWideOddRows;
 
         for (int iX = 0; iX <= numWide; ++iX, x += p.triangleSideLength)
-          row[iX] = p.noise(x, iRow * triangleHeight);
+          row[iX] = p.fieldFunction(x, iRow * triangleHeight);
       }
 
       // 0 and 7 are ignored but it's faster to leave them in than to adjust bits

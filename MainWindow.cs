@@ -38,19 +38,19 @@ namespace marching_2d
 
       fastNoise.SetNoiseType(FastNoiseLite.NoiseType.OpenSimplex2);
       fastNoise.SetSeed(seed);
-      
+
       for (int y = 0; y < imageHeight; ++y)
         for (int x = 0; x < imageWidth; ++x)
         {
-          float noise = GetNoise(x, y);
-          float snoise = clamp(0.5f + 5f * noise, 0f, 1f);
-          int bnoise = (int)(255f * snoise);
-          imageRectangles.SetPixel(x, y, Color.FromArgb(bnoise, bnoise, bnoise));
-          imageTriangles.SetPixel(x, y, Color.FromArgb(bnoise, bnoise, bnoise));
+          float fieldValue = FieldValueAt(x, y);
+          float scaled = clamp(0.5f + 5f * fieldValue, 0f, 1f);
+          int b = (int) (255f * scaled);
+          imageRectangles.SetPixel(x, y, Color.FromArgb(b, b, b));
+          imageTriangles.SetPixel(x, y, Color.FromArgb(b, b, b));
         }
 
       Pen pen = new Pen(Color.Fuchsia, 2);
-      
+
       using (var graphics = Graphics.FromImage(imageRectangles))
         RenderRectangles(pen, graphics);
 
@@ -60,7 +60,41 @@ namespace marching_2d
 
     private
       float
-      GetNoise(float x, float y) => fastNoise.GetNoise(x * rXScale + xOffset, y * rYScale + yOffset);
+      FieldValueAt(float x, float y)
+    {
+      const float primitiveScale = 100f;
+      
+      var noiseValue = fastNoise.GetNoise(x * rXScale + xOffset, y * rYScale + yOffset);
+
+      float circleValue = 0f;
+      {
+        const float r = 100f / primitiveScale;
+
+        // center circle in image
+        var cx = (x - imageWidth / 2f) / primitiveScale;
+        var cy = (y - imageHeight / 2f) / primitiveScale;
+
+        circleValue = (float) Math.Tanh(r - Math.Sqrt(cx * cx + cy * cy));
+      }
+
+      float squareValue = 0f;
+      {
+        const float w = 250f;
+        const float h = 50f;
+
+        var sx = x - imageWidth / 2f;
+        var sy = y - imageHeight / 2f;
+
+        var dx = (w / 2f - Math.Abs(sx)) / primitiveScale;
+        var dy = (h / 2f - Math.Abs(sy)) / primitiveScale;
+
+        squareValue = (float) Math.Tanh(Math.Min(dx, dy));
+      }
+
+      float circleMinusSquare = Math.Min(circleValue, -squareValue);
+
+      return Math.Max(noiseValue, circleMinusSquare);
+    }
 
     private
       void
@@ -73,9 +107,9 @@ namespace marching_2d
           graphics = graphics,
           imageWidth = imageWidth,
           imageHeight = imageHeight,
-          gridWidth = 100,
-          gridHeight = 100,
-          noise = GetNoise
+          gridWidth = 20,
+          gridHeight = 20,
+          fieldFunction = FieldValueAt
         });
     }
 
@@ -90,8 +124,8 @@ namespace marching_2d
           graphics = graphics,
           imageWidth = imageWidth,
           imageHeight = imageHeight,
-          triangleSideLength = 10,
-          noise = GetNoise
+          triangleSideLength = 30,
+          fieldFunction = FieldValueAt
         });
     }
 
@@ -111,7 +145,7 @@ namespace marching_2d
       // pictureBoxRectangles.Anchor = AnchorStyles.Left | AnchorStyles.Top;
       pictureBoxRectangles.SizeMode = PictureBoxSizeMode.Zoom;
       Controls.Add(pictureBoxRectangles);
-      
+
       var pictureBoxTriangles = new PictureBox();
       pictureBoxTriangles.Size = new Size(imageWidth, imageHeight);
       pictureBoxTriangles.Image = imageTriangles;
@@ -127,13 +161,10 @@ namespace marching_2d
     /// </summary>
     private void InitializeComponent()
     {
-      this.SuspendLayout();
-      // 
-      // MainWindow
-      // 
-      this.ClientSize = new System.Drawing.Size(284, 261);
-      this.Name = "MainWindow";
-      this.ResumeLayout(false);
+      SuspendLayout();
+      ClientSize = new System.Drawing.Size(284, 261);
+      Name = "MainWindow";
+      ResumeLayout(false);
     }
   }
 }

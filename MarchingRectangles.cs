@@ -13,7 +13,7 @@ namespace marching_2d
       public int imageHeight;
       public int gridWidth;
       public int gridHeight;
-      public Func<float, float, float> noise;
+      public FieldFunction fieldFunction;
     }
 
     public static
@@ -25,7 +25,7 @@ namespace marching_2d
       void fillRow(float[] row, int y)
       {
         for (int x = 0; x <= p.gridWidth; ++x)
-          row[x] = p.noise(x * (float) p.imageWidth / p.gridWidth, y * (float) p.imageHeight / p.gridHeight);
+          row[x] = p.fieldFunction(x * (float) p.imageWidth / p.gridWidth, y * (float) p.imageHeight / p.gridHeight);
       }
 
       Point localToImage(int gridX, int gridY, PointF p) => new() {X = localXToImage(gridX, p.X), Y = localYToImage(gridY, p.Y)};
