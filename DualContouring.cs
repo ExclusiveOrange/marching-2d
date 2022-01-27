@@ -9,7 +9,27 @@ namespace marching_2d
       void
       Draw(RenderParameters rp, int gridWidth, int gridHeight, FieldFunction fieldFunction)
     {
-      float zero(float a, float b) => 1.0f - b / (b - a);
+      (float nx, float ny)
+        normalAt(float x, float y)
+      {
+        const float small = 1f;
+        
+        float
+          yn = fieldFunction(x, y - small),
+          xn = fieldFunction(x - small, y),
+          xp = fieldFunction(x + small, y),
+          yp = fieldFunction(x, y + small);
+        
+        float
+          xd = xp - xn,
+          yd = yp - yn;
+        
+        float l = (float)Math.Sqrt(xd * xd + yd * yd);
+        
+        return l == 0f ? (1f, 0f) : (xd / l, yd / l);
+      }
+      
+      static float zero(float a, float b) => 1.0f - b / (b - a);
       
       var cellWidth = rp.imageWidth / gridWidth;
       var cellHeight = rp.imageHeight / gridHeight;
@@ -29,6 +49,7 @@ namespace marching_2d
       
       var edgeExistencesX = new bool[gridHeight + 1, gridWidth];
       var edgePositionsX = new float[gridHeight + 1, gridWidth];
+      var edgeNormalsX = new (float x, float y)[gridHeight + 1, gridWidth];
       for (int y = 0; y <= gridHeight; ++y)
         for (int x = 0; x < gridWidth; ++x)
         {
@@ -36,7 +57,11 @@ namespace marching_2d
           bool e = (n > 0) != (p > 0);
           edgeExistencesX[y, x] = e;
           if (e)
-            edgePositionsX[y, x] = xs[x] + cellWidth * zero(n, p);
+          {
+            var posX = xs[x] + cellWidth * zero(n, p);
+            edgePositionsX[y, x] = posX;
+            edgeNormalsX[y, x] = normalAt(posX, ys[y]);
+          }
         }
       
       // DELETE
@@ -44,10 +69,18 @@ namespace marching_2d
       for (int y = 0; y <= gridHeight; ++y)
         for (int x = 0; x < gridWidth; ++x)
           if (edgeExistencesX[y, x])
-            rp.graphics.DrawEllipse(rp.isopathPen, edgePositionsX[y, x], ys[y], 3f, 3f);
-      
+          {
+            const float ns = 20f;
+            const float dotSize = 3f;
+            var (posX, posY) = (edgePositionsX[y, x], ys[y]);
+            rp.graphics.DrawEllipse(rp.isopathPen, posX - dotSize / 2f, posY - dotSize / 2f, dotSize, dotSize);
+            var (nx, ny) = edgeNormalsX[y, x];
+            rp.graphics.DrawLine(rp.isopathPen, posX, posY, posX + ns * nx, posY + ns * ny);
+          }
+
       var edgeExistencesY = new bool[gridHeight, gridWidth + 1];
       var edgePositionsY = new float[gridHeight, gridWidth + 1];
+      var edgeNormalsY = new (float x, float y)[gridHeight, gridWidth + 1];
       for (int y = 0; y < gridHeight; ++y)
         for (int x = 0; x <= gridWidth; ++x)
         {
@@ -55,7 +88,11 @@ namespace marching_2d
           bool e = (n > 0) != (p > 0);
           edgeExistencesY[y, x] = e;
           if (e)
-            edgePositionsY[y, x] = ys[y] + cellHeight * zero(n, p);
+          {
+            var posY = ys[y] + cellHeight * zero(n, p);
+            edgePositionsY[y, x] = posY;
+            edgeNormalsY[y, x] = normalAt(xs[x], posY);
+          }
         }
       
       // DELETE
@@ -63,7 +100,14 @@ namespace marching_2d
       for (int y = 0; y < gridHeight; ++y)
         for (int x = 0; x <= gridWidth; ++x)
           if (edgeExistencesY[y, x])
-            rp.graphics.DrawEllipse(rp.isopathPen, xs[x], edgePositionsY[y, x], 3f, 3f);
+          {
+            const float ns = 20f;
+            const float dotSize = 3f;
+            var (posX, posY) = (xs[x], edgePositionsY[y, x]);
+            rp.graphics.DrawEllipse(rp.isopathPen, posX - dotSize / 2f, posY - dotSize / 2f, dotSize, dotSize);
+            var (nx, ny) = edgeNormalsY[y, x];
+            rp.graphics.DrawLine(rp.isopathPen, posX, posY, posX + ns * nx, posY + ns * ny);
+          }
 
       // TODO: calculate field normals (must be normalized) at edge intersections
     }
