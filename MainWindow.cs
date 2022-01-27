@@ -16,7 +16,7 @@ namespace marching_2d
       gridHeight = 50;
 
     private const int
-      triangleSideLength = 50;
+      triangleSideLength = 20;
 
     private const PixelFormat imageFormat = PixelFormat.Format32bppRgb;
 

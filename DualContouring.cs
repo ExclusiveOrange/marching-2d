@@ -1,17 +1,35 @@
 ﻿using System;
 using System.Drawing;
+using MathNet.Numerics.LinearAlgebra;
 using MathNet.Numerics.LinearAlgebra.Single;
 
 namespace marching_2d
 {
   internal class DualContouring
   {
+    // Written by me, Atlee Brink, based on the description of the algorithm at
+    // https://www.boristhebrave.com/2018/04/15/dual-contouring-tutorial/
+    // and using the constraint trick from
+    // https://github.com/BorisTheBrave/mc-dc/blob/a165b326849d8814fb03c963ad33a9faf6cc6dea/qef.py#L87
+    // and using the pseudoinverse trick from
+    // https://stackoverflow.com/a/31188308
+    //
+    // No copy-pasting was done.
+    //
+    // Thanks to Math.NET for their Matrix.PseudoInverse() implementation, used here to minimize the error
+    // function representing the distance of an unknown vertex from multiple lines on the intersections of the isopath
+    // with the grid cell edges and perpendicular to the field gradients at those intersection points.
+    // see: https://numerics.mathdotnet.com/
+    //
+    // WARNING: this implementation is purely a discovery to see how well this algorithm works.
+    // IT IS NOT OPTIMIZED FOR PERFORMANCE IN THE SLIGHTEST
+
     public static
       void
       Draw(RenderParameters rp, int gridWidth, int gridHeight, FieldFunction fieldFunction)
     {
       const bool constrain = true;
-      const float constrainStrength = 0.01f; // discovered experimentally: 0.01f might work
+      const float constrainStrength = 0.05f; // discovered experimentally: 0.01f might work
 
       (float nx, float ny)
         normalAt(float x, float y)
@@ -71,17 +89,17 @@ namespace marching_2d
       Pen edgePen = new(Color.Peru, 1);
 
       // draw intersection points
-      for (int y = 0; y <= gridHeight; ++y)
-        for (int x = 0; x < gridWidth; ++x)
-          if (edgeExistencesX[y, x])
-          {
-            const float ns = 20f;
-            const float dotSize = 3f;
-            var (posX, posY) = (edgePositionsX[y, x], ys[y]);
-            rp.graphics.DrawEllipse(edgePen, posX - dotSize / 2f, posY - dotSize / 2f, dotSize, dotSize);
-            var (nx, ny) = edgeNormalsX[y, x];
-            rp.graphics.DrawLine(edgePen, posX, posY, posX + ns * nx, posY + ns * ny);
-          }
+      // for (int y = 0; y <= gridHeight; ++y)
+      //   for (int x = 0; x < gridWidth; ++x)
+      //     if (edgeExistencesX[y, x])
+      //     {
+      //       const float ns = 20f;
+      //       const float dotSize = 3f;
+      //       var (posX, posY) = (edgePositionsX[y, x], ys[y]);
+      //       rp.graphics.DrawEllipse(edgePen, posX - dotSize / 2f, posY - dotSize / 2f, dotSize, dotSize);
+      //       var (nx, ny) = edgeNormalsX[y, x];
+      //       rp.graphics.DrawLine(edgePen, posX, posY, posX + ns * nx, posY + ns * ny);
+      //     }
 
       var edgeExistencesY = new bool[gridHeight, gridWidth + 1];
       var edgePositionsY = new float[gridHeight, gridWidth + 1];
@@ -101,16 +119,27 @@ namespace marching_2d
         }
 
       // draw intersection points
-      for (int y = 0; y < gridHeight; ++y)
-        for (int x = 0; x <= gridWidth; ++x)
-          if (edgeExistencesY[y, x])
+      // for (int y = 0; y < gridHeight; ++y)
+      //   for (int x = 0; x <= gridWidth; ++x)
+      //     if (edgeExistencesY[y, x])
+      //     {
+      //       const float ns = 20f;
+      //       const float dotSize = 3f;
+      //       var (posX, posY) = (xs[x], edgePositionsY[y, x]);
+      //       rp.graphics.DrawEllipse(edgePen, posX - dotSize / 2f, posY - dotSize / 2f, dotSize, dotSize);
+      //       var (nx, ny) = edgeNormalsY[y, x];
+      //       rp.graphics.DrawLine(edgePen, posX, posY, posX + ns * nx, posY + ns * ny);
+      //     }
+
+      // draw grid but only where edges are crossed
+      if (rp.gridPen is not null)
+        for (int y = 0; y < gridHeight; ++y)
+          for (int x = 0; x < gridWidth; ++x)
           {
-            const float ns = 20f;
-            const float dotSize = 3f;
-            var (posX, posY) = (xs[x], edgePositionsY[y, x]);
-            rp.graphics.DrawEllipse(edgePen, posX - dotSize / 2f, posY - dotSize / 2f, dotSize, dotSize);
-            var (nx, ny) = edgeNormalsY[y, x];
-            rp.graphics.DrawLine(edgePen, posX, posY, posX + ns * nx, posY + ns * ny);
+            if (x < gridWidth && edgeExistencesX[y, x])
+              rp.graphics.DrawLine(rp.gridPen, xs[x], ys[y], xs[x + 1], ys[y]);
+            if (y < gridHeight && edgeExistencesY[y, x])
+              rp.graphics.DrawLine(rp.gridPen, xs[x], ys[y], xs[x], ys[y + 1]);
           }
 
       var vertexExistences = new bool[gridHeight, gridWidth];
@@ -138,6 +167,7 @@ namespace marching_2d
             sumxs += x;
             sumys += y;
           }
+
           meanx = sumxs / numCellEdges;
           meany = sumys / numCellEdges;
         }
@@ -148,7 +178,7 @@ namespace marching_2d
           cellEdges[numCellEdges++] = (meanx, meany, 0f, constrainStrength);
         }
 
-        MathNet.Numerics.LinearAlgebra.Matrix<float> A = new DenseMatrix(numCellEdges, 2);
+        Matrix<float> A = new DenseMatrix(numCellEdges, 2);
         for (int iRow = 0; iRow < numCellEdges; ++iRow)
         {
           var (_, _, nx, ny) = cellEdges[iRow];
@@ -156,21 +186,20 @@ namespace marching_2d
           A[iRow, 1] = ny;
         }
 
-        MathNet.Numerics.LinearAlgebra.Vector<float> b = new DenseVector(numCellEdges);
+        Vector<float> b = new DenseVector(numCellEdges);
         for (int iRow = 0; iRow < numCellEdges; ++iRow)
         {
           var (x, y, nx, ny) = cellEdges[iRow];
-          // b[iRow] = (x - meanx) * nx + (y - meany) * ny;
           b[iRow] = x * nx + y * ny;
         }
 
         var pseudo = A.PseudoInverse();
         var leastSquares = pseudo.Multiply(b);
 
-        // return (leastSquares[0] + meanx, leastSquares[1] + meany);
         return (leastSquares[0], leastSquares[1]);
       }
 
+      // locate vertices within grid cells
       for (int y = 0; y < gridHeight; ++y)
         for (int x = 0; x < gridWidth; ++x)
         {
@@ -190,14 +219,33 @@ namespace marching_2d
               cellEdges[numCellEdges++] = (xs[xi], edgePositionsY[y, xi], nx, ny);
             }
 
-          if (numCellEdges == 0)
-            continue;
+          bool vertexExists = numCellEdges != 0;
+          vertexExistences[y, x] = vertexExists;
 
-          var (vx, vy) = estimateVertex();
-
-          const float dotSize = 3f;
-          rp.graphics.DrawEllipse(rp.isopathPen, vx - dotSize / 2f, vy - dotSize / 2f, dotSize, dotSize);
+          if (vertexExists)
+            vertexPositions[y, x] = estimateVertex();
         }
+
+      // draw isopath to image
+      // edges x
+      for (int y = 1; y < gridHeight; ++y)
+        for (int x = 0; x < gridWidth; ++x)
+          if (edgeExistencesX[y, x])
+          {
+            var (vx0, vy0) = vertexPositions[y - 1, x];
+            var (vx1, vy1) = vertexPositions[y, x];
+            rp.graphics.DrawLine(rp.isopathPen, vx0, vy0, vx1, vy1);
+          }
+
+      // edges y
+      for (int y = 0; y < gridHeight; ++y)
+        for (int x = 1; x < gridWidth; ++x)
+          if (edgeExistencesY[y, x])
+          {
+            var (vx0, vy0) = vertexPositions[y, x - 1];
+            var (vx1, vy1) = vertexPositions[y, x];
+            rp.graphics.DrawLine(rp.isopathPen, vx0, vy0, vx1, vy1);
+          }
     }
   }
 }
