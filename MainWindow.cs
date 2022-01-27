@@ -36,7 +36,7 @@ namespace marching_2d
     private RendererAndImage[] renderersAndImages = null;
 
     private readonly Pen isopathPen = new(Color.Fuchsia, 2);
-    private readonly Pen gridPen = new(Color.Chocolate, 1); // set null to not draw grids
+    private readonly Pen gridPen = null; //new(Color.Chocolate, 1); // set null to not draw grids
 
     private const float
       xScale = 5f,

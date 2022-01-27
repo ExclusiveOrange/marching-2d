@@ -27,7 +27,7 @@ namespace marching_2d
       float[] rowB = new float[gridWidth + 1];
 
       fillRow(rowB, 0);
-      
+
       for (int y = 0; y < gridHeight; ++y)
       {
         (rowB, rowA) = (rowA, rowB);
@@ -38,11 +38,14 @@ namespace marching_2d
           var cornerValues = new CornerValues {tl = rowA[x], tr = rowA[x + 1], bl = rowB[x], br = rowB[x + 1]};
           if (tryGetLocalLine(cornerValues) is (PointF, PointF) localLine)
           {
-            rp.graphics.DrawLine(rp.gridPen, localToImage(x, y, new PointF(0, 0)), localToImage(x, y, new PointF(1, 0)));
-            rp.graphics.DrawLine(rp.gridPen, localToImage(x, y, new PointF(0, 0)), localToImage(x, y, new PointF(0, 1)));
-            rp.graphics.DrawLine(rp.gridPen, localToImage(x, y, new PointF(1, 1)), localToImage(x, y, new PointF(1, 0)));
-            rp.graphics.DrawLine(rp.gridPen, localToImage(x, y, new PointF(1, 1)), localToImage(x, y, new PointF(0, 1)));
-            
+            if (rp.gridPen is not null)
+            {
+              rp.graphics.DrawLine(rp.gridPen, localToImage(x, y, new PointF(0, 0)), localToImage(x, y, new PointF(1, 0)));
+              rp.graphics.DrawLine(rp.gridPen, localToImage(x, y, new PointF(0, 0)), localToImage(x, y, new PointF(0, 1)));
+              rp.graphics.DrawLine(rp.gridPen, localToImage(x, y, new PointF(1, 1)), localToImage(x, y, new PointF(1, 0)));
+              rp.graphics.DrawLine(rp.gridPen, localToImage(x, y, new PointF(1, 1)), localToImage(x, y, new PointF(0, 1)));
+            }
+
             rp.graphics.DrawLine(rp.isopathPen, localToImage(x, y, localLine.pt1), localToImage(x, y, localLine.pt2));
           }
         }
@@ -50,8 +53,11 @@ namespace marching_2d
     }
 
     //==============================================================================================================================================================
-    
-    private struct CornerValues { public float tl, tr, bl, br; }
+
+    private struct CornerValues
+    {
+      public float tl, tr, bl, br;
+    }
 
     private static
       Func<CornerValues, (PointF pt1, PointF pt2)?>[]
