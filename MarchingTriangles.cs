@@ -5,34 +5,24 @@ namespace marching_2d
 {
   public class MarchingTriangles
   {
-    public struct DrawParameters
-    {
-      public Pen pen;
-      public Graphics graphics;
-      public int imageWidth;
-      public int imageHeight;
-      public int triangleSideLength;
-      public FieldFunction fieldFunction;
-    }
-
     public static
       void
-      Draw(DrawParameters p)
+      Draw(RenderParameters rp, int triangleSideLength, FieldFunction fieldFunction)
     {
       const float sqrt3 = 1.7320508075688772f;
-      float triangleHeight = sqrt3 * p.triangleSideLength * 0.5f;
-      int numTrianglesWideEvenRows = (int) Math.Ceiling(0.5f + (float) p.imageWidth / p.triangleSideLength);
-      int numTrianglesWideOddRows = (int) Math.Ceiling((float) p.imageWidth / p.triangleSideLength);
-      int numTrianglesHigh = (int) Math.Ceiling(p.imageHeight / triangleHeight);
+      float triangleHeight = sqrt3 * triangleSideLength * 0.5f;
+      int numTrianglesWideEvenRows = (int) Math.Ceiling(0.5f + (float) rp.imageWidth / triangleSideLength);
+      int numTrianglesWideOddRows = (int) Math.Ceiling((float) rp.imageWidth / triangleSideLength);
+      int numTrianglesHigh = (int) Math.Ceiling(rp.imageHeight / triangleHeight);
 
       void fillRow(float[] row, int iRow)
       {
         bool even = (iRow & 1) == 0;
-        float x = even ? -0.5f * p.triangleSideLength : 0f;
+        float x = even ? -0.5f * triangleSideLength : 0f;
         int numWide = even ? numTrianglesWideEvenRows : numTrianglesWideOddRows;
 
-        for (int iX = 0; iX <= numWide; ++iX, x += p.triangleSideLength)
-          row[iX] = p.fieldFunction(x, iRow * triangleHeight);
+        for (int iX = 0; iX <= numWide; ++iX, x += triangleSideLength)
+          row[iX] = fieldFunction(x, iRow * triangleHeight);
       }
 
       // 0 and 7 are ignored but it's faster to leave them in than to adjust bits
@@ -45,12 +35,9 @@ namespace marching_2d
       float[] xs = new float[3];
       float[] ys = new float[3];
       
-      // DELETE
-      Pen meshPen = new Pen(Color.Chocolate, 1);
-
       void renderLine(int vertexBits, float x, float y0, float y1)
       {
-        (xs[0], xs[1], xs[2]) = (x, x + p.triangleSideLength, x + 0.5f * p.triangleSideLength);
+        (xs[0], xs[1], xs[2]) = (x, x + triangleSideLength, x + 0.5f * triangleSideLength);
         (ys[0], ys[1], ys[2]) = (y0, y0, y1);
         
         // one edge is from vals[iA] to vals[iB], the other from vals[iA] to vals[iC]
@@ -65,12 +52,16 @@ namespace marching_2d
         var (abx, aby) = (lerp(ax, bx, abt), lerp(ay, by, abt));
         var (acx, acy) = (lerp(ax, cx, act), lerp(ay, cy, act));
 
-        // DELETE
-        p.graphics.DrawLine(meshPen, ax, ay, bx, by);
-        p.graphics.DrawLine(meshPen, ax, ay, cx, cy);
-        p.graphics.DrawLine(meshPen, bx, by, cx, cy);
+        // grid
+        if (rp.gridPen is not null)
+        {
+          rp.graphics.DrawLine(rp.gridPen, ax, ay, bx, by);
+          rp.graphics.DrawLine(rp.gridPen, ax, ay, cx, cy);
+          rp.graphics.DrawLine(rp.gridPen, bx, by, cx, cy);
+        }
 
-        p.graphics.DrawLine(p.pen, abx, aby, acx, acy);
+        // isopath
+        rp.graphics.DrawLine(rp.isopathPen, abx, aby, acx, acy);
       }
 
       float[] rowEven = new float[numTrianglesWideEvenRows + 1];
@@ -90,8 +81,8 @@ namespace marching_2d
         float oddY = ((even ? 1 : 0) + iRow) * triangleHeight;
 
         // triangles where base is an even row
-        float x = -0.5f * p.triangleSideLength;
-        for (int xi = 0; xi < numTrianglesWideEvenRows; ++xi, x += p.triangleSideLength)
+        float x = -0.5f * triangleSideLength;
+        for (int xi = 0; xi < numTrianglesWideEvenRows; ++xi, x += triangleSideLength)
         {
           (vals[0], vals[1], vals[2]) = (rowEven[xi], rowEven[xi + 1], rowOdd[xi]);
           int vertexBits = (vals[0] > 0 ? 1 : 0) + (vals[1] > 0 ? 2 : 0) + (vals[2] > 0 ? 4 : 0);
@@ -102,7 +93,7 @@ namespace marching_2d
 
         //triangles where base is an odd row
         x = 0f;
-        for (int xi = 0; xi < numTrianglesWideOddRows; ++xi, x += p.triangleSideLength)
+        for (int xi = 0; xi < numTrianglesWideOddRows; ++xi, x += triangleSideLength)
         {
           (vals[0], vals[1], vals[2]) = (rowOdd[xi], rowOdd[xi + 1], rowEven[xi + 1]);
           int vertexBits = (vals[0] > 0 ? 1 : 0) + (vals[1] > 0 ? 2 : 0) + (vals[2] > 0 ? 4 : 0);

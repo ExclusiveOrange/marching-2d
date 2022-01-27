@@ -7,22 +7,41 @@ namespace marching_2d
 {
   public sealed class MainWindow : Form
   {
-    private const int imageWidth = 1000;
-    private const int imageHeight = 1000;
+    private const int
+      imageWidth = 1000,
+      imageHeight = 1000;
+
+    private const int
+      gridWidth = 20,
+      gridHeight = 20;
+
+    private const int
+      triangleSideLength = 50;
 
     private const PixelFormat imageFormat = PixelFormat.Format32bppRgb;
 
-    private readonly Bitmap imageRectangles = new(imageWidth, imageHeight, imageFormat);
-    private readonly Bitmap imageTriangles = new(imageWidth, imageHeight, imageFormat);
-    private readonly Bitmap imageDual = new(imageWidth, imageHeight, imageFormat);
+    private delegate void IsosurfaceRenderer(RenderParameters rp);
 
-    private const float xScale = 5f;
-    private const float xOffset = 0f;
-    private const float yScale = 5f;
-    private const float yOffset = 0f;
+    private struct RendererAndImage
+    {
+      public IsosurfaceRenderer renderer;
+      public Bitmap image;
+    }
 
-    private const float rXScale = 1.0f / xScale;
-    private const float rYScale = 1.0f / yScale;
+    private RendererAndImage[] renderersAndImages = null;
+
+    private readonly Pen isopathPen = new(Color.Fuchsia, 2);
+    private readonly Pen gridPen = new(Color.Chocolate, 1); // set null to not draw grids
+
+    private const float
+      xScale = 5f,
+      xOffset = 0f,
+      yScale = 5f,
+      yOffset = 0f;
+
+    private const float
+      rXScale = 1.0f / xScale,
+      rYScale = 1.0f / yScale;
 
     private readonly FastNoiseLite fastNoise = new();
     private const int seed = 1337;
@@ -37,6 +56,7 @@ namespace marching_2d
     public
       MainWindow()
     {
+      SetupRenderersAndImages();
       SetupUi();
 
       fastNoise.SetNoiseType(FastNoiseLite.NoiseType.OpenSimplex2);
@@ -49,21 +69,21 @@ namespace marching_2d
           float n = clamp(0.5f + 5f * v, 0f, 1f);
           int b = (int) (255f * n);
 
-          imageRectangles.SetPixel(x, y, Color.FromArgb(b, b, b));
-          imageTriangles.SetPixel(x, y, Color.FromArgb(b, b, b));
-          imageDual.SetPixel(x, y, Color.FromArgb(b, b, b));
+          foreach (var rendererAndImage in renderersAndImages)
+            rendererAndImage.image.SetPixel(x, y, Color.FromArgb(b, b, b));
         }
 
-      Pen pen = new Pen(Color.Fuchsia, 2);
+      RenderParameters renderParameters = new()
+      {
+        isopathPen = isopathPen,
+        gridPen = gridPen,
+        imageWidth = imageWidth,
+        imageHeight = imageHeight
+      };
 
-      using (var graphics = Graphics.FromImage(imageRectangles))
-        RenderRectangles(pen, graphics);
-
-      using (var graphics = Graphics.FromImage(imageTriangles))
-        RenderTriangles(pen, graphics);
-
-      using (var graphics = Graphics.FromImage(imageDual))
-        RenderDual(pen, graphics);
+      foreach (var rendererAndImage in renderersAndImages)
+        using (renderParameters.graphics = Graphics.FromImage(rendererAndImage.image))
+          rendererAndImage.renderer(renderParameters);
     }
 
     private
@@ -87,7 +107,7 @@ namespace marching_2d
 
       float squareValue = 0f;
       {
-        const float w = 250f;
+        const float w = 80f;
         const float h = 50f;
 
         var sx = x - imageWidth / 2f;
@@ -106,89 +126,75 @@ namespace marching_2d
 
     private
       void
-      RenderDual(Pen pen, Graphics graphics)
-    {
-      // throw new NotImplementedException();
-    }
+      RenderDual(RenderParameters rp)
+      =>
+        DualContouring.Draw(
+          rp,
+          new DualContouring.Parameters
+          {
+            gridWidth = gridWidth,
+            gridHeight = gridHeight,
+            fieldFunction = FieldValueAt
+          });
 
     private
       void
-      RenderRectangles(Pen pen, Graphics graphics)
+      RenderRectangles(RenderParameters rp)
       =>
         MarchingRectangles.Draw(
-          new MarchingRectangles.DrawParameters
+          rp,
+          new MarchingRectangles.Parameters
           {
-            pen = pen,
-            graphics = graphics,
-            imageWidth = imageWidth,
-            imageHeight = imageHeight,
-            gridWidth = 20,
-            gridHeight = 20,
+            gridWidth = gridWidth,
+            gridHeight = gridHeight,
             fieldFunction = FieldValueAt
           });
 
     private
       void
-      RenderTriangles(Pen pen, Graphics graphics)
-      =>
-        MarchingTriangles.Draw(
-          new MarchingTriangles.DrawParameters
-          {
-            pen = pen,
-            graphics = graphics,
-            imageWidth = imageWidth,
-            imageHeight = imageHeight,
-            triangleSideLength = 50,
-            fieldFunction = FieldValueAt
-          });
+      RenderTriangles(RenderParameters rp)
+      => MarchingTriangles.Draw(rp, triangleSideLength, FieldValueAt);
+
+    private
+      void
+      SetupRenderersAndImages()
+    {
+      renderersAndImages = new RendererAndImage[]
+      {
+        new() {renderer = RenderRectangles, image = new Bitmap(imageWidth, imageHeight, imageFormat)},
+        new() {renderer = RenderDual, image = new Bitmap(imageWidth, imageHeight, imageFormat)},
+        new() {renderer = RenderTriangles, image = new Bitmap(imageWidth, imageHeight, imageFormat)}
+      };
+    }
 
     private
       void
       SetupUi()
     {
       AutoScaleMode = AutoScaleMode.Font;
-      ClientSize = new Size(imageWidth * 3, imageHeight);
+      ClientSize = new Size(imageWidth * renderersAndImages.Length, imageHeight);
       FormBorderStyle = FormBorderStyle.FixedSingle;
       Text = @"Marching 2D";
-      
-      FlowLayoutPanel layout = new();
-      layout.FlowDirection = FlowDirection.LeftToRight;
-      layout.WrapContents = false;
-      layout.Dock = DockStyle.Fill;
-      layout.Padding = new Padding(0);
-      layout.Margin = new Padding(0);
-      
-      var pictureBoxRectangles = new PictureBox();
-      pictureBoxRectangles.Size = new Size(imageWidth, imageHeight);
-      pictureBoxRectangles.Image = imageRectangles;
-      pictureBoxRectangles.Dock = DockStyle.Left;
-      pictureBoxRectangles.Margin = new Padding(0);
-      // pictureBoxRectangles.Anchor = AnchorStyles.Left | AnchorStyles.Top;
-      pictureBoxRectangles.SizeMode = PictureBoxSizeMode.Zoom;
-      // Controls.Add(pictureBoxRectangles);
-      layout.Controls.Add(pictureBoxRectangles);
 
-      var pictureBoxDual = new PictureBox();
-      pictureBoxDual.Size = new Size(imageWidth, imageHeight);
-      pictureBoxDual.Image = imageDual;
-      pictureBoxDual.Dock = DockStyle.Fill;
-      pictureBoxDual.Anchor = AnchorStyles.None;
-      pictureBoxDual.Margin = new Padding(0);
-      // pictureBoxTriangles.Anchor = AnchorStyles.Right | AnchorStyles.Top;
-      pictureBoxDual.SizeMode = PictureBoxSizeMode.Zoom;
-      // Controls.Add(pictureBoxDual);
-      layout.Controls.Add(pictureBoxDual);
+      FlowLayoutPanel layout = new()
+      {
+        FlowDirection = FlowDirection.LeftToRight,
+        WrapContents = false,
+        Dock = DockStyle.Fill,
+        Padding = new Padding(0),
+        Margin = new Padding(0)
+      };
 
-      var pictureBoxTriangles = new PictureBox();
-      pictureBoxTriangles.Size = new Size(imageWidth, imageHeight);
-      pictureBoxTriangles.Image = imageTriangles;
-      pictureBoxTriangles.Dock = DockStyle.Right;
-      pictureBoxTriangles.Margin = new Padding(0);
-      // pictureBoxTriangles.Anchor = AnchorStyles.Right | AnchorStyles.Top;
-      pictureBoxTriangles.SizeMode = PictureBoxSizeMode.Zoom;
-      // Controls.Add(pictureBoxTriangles);
-      layout.Controls.Add(pictureBoxTriangles);
-      
+      foreach (var rendererAndImage in renderersAndImages)
+        layout.Controls.Add(
+          new PictureBox
+          {
+            Size = new Size(imageWidth, imageHeight),
+            Image = rendererAndImage.image,
+            Margin = new Padding(0),
+            SizeMode = PictureBoxSizeMode.Zoom
+          });
+
       Controls.Add(layout);
     }
 

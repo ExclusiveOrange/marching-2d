@@ -5,12 +5,8 @@ namespace marching_2d
 {
   internal class MarchingRectangles
   {
-    public struct DrawParameters
+    public struct Parameters
     {
-      public Pen pen;
-      public Graphics graphics;
-      public int imageWidth;
-      public int imageHeight;
       public int gridWidth;
       public int gridHeight;
       public FieldFunction fieldFunction;
@@ -18,19 +14,19 @@ namespace marching_2d
 
     public static
       void
-      Draw(DrawParameters p)
+      Draw(RenderParameters rp, Parameters p)
     {
       Func<CornerValues, (PointF pt1, PointF pt2)?>[] valuesToLineFuncs = createValuesToLineFuncs();
 
       void fillRow(float[] row, int y)
       {
         for (int x = 0; x <= p.gridWidth; ++x)
-          row[x] = p.fieldFunction(x * (float) p.imageWidth / p.gridWidth, y * (float) p.imageHeight / p.gridHeight);
+          row[x] = p.fieldFunction(x * (float) rp.imageWidth / p.gridWidth, y * (float) rp.imageHeight / p.gridHeight);
       }
 
       Point localToImage(int gridX, int gridY, PointF p) => new() {X = localXToImage(gridX, p.X), Y = localYToImage(gridY, p.Y)};
-      int localXToImage(int gridX, float cellX) => (int) ((gridX + cellX) * p.imageWidth / p.gridWidth);
-      int localYToImage(int gridY, float cellY) => (int) ((gridY + cellY) * p.imageHeight / p.gridHeight);
+      int localXToImage(int gridX, float cellX) => (int) ((gridX + cellX) * rp.imageWidth / p.gridWidth);
+      int localYToImage(int gridY, float cellY) => (int) ((gridY + cellY) * rp.imageHeight / p.gridHeight);
       (PointF pt1, PointF pt2)? tryGetLocalLine(CornerValues cornerValues) => valuesToLineFuncs[getCellFuncIndex(cornerValues)](cornerValues);
 
       // Row Buffers
@@ -39,9 +35,6 @@ namespace marching_2d
 
       fillRow(rowB, 0);
       
-      // DELETE
-      Pen meshPen = new Pen(Color.Chocolate, 1);
-
       for (int y = 0; y < p.gridHeight; ++y)
       {
         (rowB, rowA) = (rowA, rowB);
@@ -52,12 +45,12 @@ namespace marching_2d
           var cornerValues = new CornerValues {tl = rowA[x], tr = rowA[x + 1], bl = rowB[x], br = rowB[x + 1]};
           if (tryGetLocalLine(cornerValues) is (PointF, PointF) localLine)
           {
-            p.graphics.DrawLine(meshPen, localToImage(x, y, new PointF(0, 0)), localToImage(x, y, new PointF(1, 0)));
-            p.graphics.DrawLine(meshPen, localToImage(x, y, new PointF(0, 0)), localToImage(x, y, new PointF(0, 1)));
-            p.graphics.DrawLine(meshPen, localToImage(x, y, new PointF(1, 1)), localToImage(x, y, new PointF(1, 0)));
-            p.graphics.DrawLine(meshPen, localToImage(x, y, new PointF(1, 1)), localToImage(x, y, new PointF(0, 1)));
+            rp.graphics.DrawLine(rp.gridPen, localToImage(x, y, new PointF(0, 0)), localToImage(x, y, new PointF(1, 0)));
+            rp.graphics.DrawLine(rp.gridPen, localToImage(x, y, new PointF(0, 0)), localToImage(x, y, new PointF(0, 1)));
+            rp.graphics.DrawLine(rp.gridPen, localToImage(x, y, new PointF(1, 1)), localToImage(x, y, new PointF(1, 0)));
+            rp.graphics.DrawLine(rp.gridPen, localToImage(x, y, new PointF(1, 1)), localToImage(x, y, new PointF(0, 1)));
             
-            p.graphics.DrawLine(p.pen, localToImage(x, y, localLine.pt1), localToImage(x, y, localLine.pt2));
+            rp.graphics.DrawLine(rp.isopathPen, localToImage(x, y, localLine.pt1), localToImage(x, y, localLine.pt2));
           }
         }
       }
