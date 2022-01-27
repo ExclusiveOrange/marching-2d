@@ -109,7 +109,7 @@ namespace marching_2d
             rp.graphics.DrawLine(rp.isopathPen, posX, posY, posX + ns * nx, posY + ns * ny);
           }
 
-      // TODO: calculate field normals (must be normalized) at edge intersections
+      // TODO: add singular-value-decomposition 
     }
   }
 }
