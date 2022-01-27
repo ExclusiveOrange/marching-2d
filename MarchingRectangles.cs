@@ -5,42 +5,35 @@ namespace marching_2d
 {
   internal class MarchingRectangles
   {
-    public struct Parameters
-    {
-      public int gridWidth;
-      public int gridHeight;
-      public FieldFunction fieldFunction;
-    }
-
     public static
       void
-      Draw(RenderParameters rp, Parameters p)
+      Draw(RenderParameters rp, int gridWidth, int gridHeight, FieldFunction fieldFunction)
     {
       Func<CornerValues, (PointF pt1, PointF pt2)?>[] valuesToLineFuncs = createValuesToLineFuncs();
 
       void fillRow(float[] row, int y)
       {
-        for (int x = 0; x <= p.gridWidth; ++x)
-          row[x] = p.fieldFunction(x * (float) rp.imageWidth / p.gridWidth, y * (float) rp.imageHeight / p.gridHeight);
+        for (int x = 0; x <= gridWidth; ++x)
+          row[x] = fieldFunction(x * (float) rp.imageWidth / gridWidth, y * (float) rp.imageHeight / gridHeight);
       }
 
       Point localToImage(int gridX, int gridY, PointF p) => new() {X = localXToImage(gridX, p.X), Y = localYToImage(gridY, p.Y)};
-      int localXToImage(int gridX, float cellX) => (int) ((gridX + cellX) * rp.imageWidth / p.gridWidth);
-      int localYToImage(int gridY, float cellY) => (int) ((gridY + cellY) * rp.imageHeight / p.gridHeight);
+      int localXToImage(int gridX, float cellX) => (int) ((gridX + cellX) * rp.imageWidth / gridWidth);
+      int localYToImage(int gridY, float cellY) => (int) ((gridY + cellY) * rp.imageHeight / gridHeight);
       (PointF pt1, PointF pt2)? tryGetLocalLine(CornerValues cornerValues) => valuesToLineFuncs[getCellFuncIndex(cornerValues)](cornerValues);
 
       // Row Buffers
-      float[] rowA = new float[p.gridWidth + 1];
-      float[] rowB = new float[p.gridWidth + 1];
+      float[] rowA = new float[gridWidth + 1];
+      float[] rowB = new float[gridWidth + 1];
 
       fillRow(rowB, 0);
       
-      for (int y = 0; y < p.gridHeight; ++y)
+      for (int y = 0; y < gridHeight; ++y)
       {
         (rowB, rowA) = (rowA, rowB);
         fillRow(rowB, y + 1);
 
-        for (int x = 0; x < p.gridWidth; ++x)
+        for (int x = 0; x < gridWidth; ++x)
         {
           var cornerValues = new CornerValues {tl = rowA[x], tr = rowA[x + 1], bl = rowB[x], br = rowB[x + 1]};
           if (tryGetLocalLine(cornerValues) is (PointF, PointF) localLine)

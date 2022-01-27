@@ -22,10 +22,15 @@ namespace marching_2d
 
     private delegate void IsosurfaceRenderer(RenderParameters rp);
 
-    private struct RendererAndImage
+    private readonly struct RendererAndImage
     {
-      public IsosurfaceRenderer renderer;
-      public Bitmap image;
+      public readonly IsosurfaceRenderer renderer;
+      public readonly Bitmap image;
+
+      public RendererAndImage(IsosurfaceRenderer _renderer, Bitmap _image)
+      {
+        (renderer, image) = (_renderer, _image);
+      }
     }
 
     private RendererAndImage[] renderersAndImages = null;
@@ -126,44 +131,19 @@ namespace marching_2d
 
     private
       void
-      RenderDual(RenderParameters rp)
-      =>
-        DualContouring.Draw(
-          rp,
-          new DualContouring.Parameters
-          {
-            gridWidth = gridWidth,
-            gridHeight = gridHeight,
-            fieldFunction = FieldValueAt
-          });
-
-    private
-      void
-      RenderRectangles(RenderParameters rp)
-      =>
-        MarchingRectangles.Draw(
-          rp,
-          new MarchingRectangles.Parameters
-          {
-            gridWidth = gridWidth,
-            gridHeight = gridHeight,
-            fieldFunction = FieldValueAt
-          });
-
-    private
-      void
-      RenderTriangles(RenderParameters rp)
-      => MarchingTriangles.Draw(rp, triangleSideLength, FieldValueAt);
-
-    private
-      void
       SetupRenderersAndImages()
     {
       renderersAndImages = new RendererAndImage[]
       {
-        new() {renderer = RenderRectangles, image = new Bitmap(imageWidth, imageHeight, imageFormat)},
-        new() {renderer = RenderDual, image = new Bitmap(imageWidth, imageHeight, imageFormat)},
-        new() {renderer = RenderTriangles, image = new Bitmap(imageWidth, imageHeight, imageFormat)}
+        new(
+          rp => MarchingRectangles.Draw(rp, gridWidth, gridHeight, FieldValueAt),
+          new Bitmap(imageWidth, imageHeight, imageFormat)),
+        new(
+          rp => DualContouring.Draw(rp, gridWidth, gridHeight, FieldValueAt),
+          new Bitmap(imageWidth, imageHeight, imageFormat)),
+        new(
+          rp => MarchingTriangles.Draw(rp, triangleSideLength, FieldValueAt),
+          new Bitmap(imageWidth, imageHeight, imageFormat))
       };
     }
 
@@ -184,7 +164,6 @@ namespace marching_2d
         Padding = new Padding(0),
         Margin = new Padding(0)
       };
-
       foreach (var rendererAndImage in renderersAndImages)
         layout.Controls.Add(
           new PictureBox
@@ -194,7 +173,6 @@ namespace marching_2d
             Margin = new Padding(0),
             SizeMode = PictureBoxSizeMode.Zoom
           });
-
       Controls.Add(layout);
     }
 
