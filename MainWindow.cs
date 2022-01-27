@@ -12,8 +12,8 @@ namespace marching_2d
       imageHeight = 1000;
 
     private const int
-      gridWidth = 20,
-      gridHeight = 20;
+      gridWidth = 50,
+      gridHeight = 50;
 
     private const int
       triangleSideLength = 50;
@@ -112,7 +112,7 @@ namespace marching_2d
 
       float squareValue = 0f;
       {
-        const float w = 80f;
+        const float w = 250f;
         const float h = 50f;
 
         var sx = x - imageWidth / 2f;
