@@ -1,11 +1,12 @@
 ﻿using System;
-using System.Drawing;
-using MathNet.Numerics.LinearAlgebra;
-using MathNet.Numerics.LinearAlgebra.Single;
+
+// using System.Drawing;
+// using MathNet.Numerics.LinearAlgebra;
+// using MathNet.Numerics.LinearAlgebra.Single;
 
 namespace marching_2d
 {
-  internal class DualContouring
+  internal class DualContouring2
   {
     // Written by me, Atlee Brink, based on the description of the algorithm at
     // https://www.boristhebrave.com/2018/04/15/dual-contouring-tutorial/
@@ -145,7 +146,8 @@ namespace marching_2d
 
       var vertexExistences = new bool[gridHeight, gridWidth];
       var vertexPositions = new (float x, float y)[gridHeight, gridWidth];
-      var cellEdges = new (float x, float y, float nx, float ny)[6];
+      var cellEdges = new (float x, float y, float nx, float ny, float dx, float dy)[6];
+      var estimates = new (float x, float y)[6];
       int numCellEdges;
 
       const int minNumCellEdges = constrain ? 2 : 0;
@@ -153,51 +155,38 @@ namespace marching_2d
       (float x, float y)
         estimateVertex()
       {
-        // thanks for pseudo-inverse trick: https://stackoverflow.com/a/31188308
-        // thanks for constraint bias trick
-        // https://www.boristhebrave.com/2018/04/15/dual-contouring-tutorial/
-        // https://github.com/BorisTheBrave/mc-dc/blob/a165b326849d8814fb03c963ad33a9faf6cc6dea/qef.py#L87
+        const float small = 0.001f;
+        float meanX = 0, meanY = 0;
 
-        // calculate mean
-        float meanx, meany;
+        // measure initial mean
+        for (int iEdge = 0; iEdge < numCellEdges; ++iEdge)
+          (meanX, meanY) = (meanX + cellEdges[iEdge].x, meanY + cellEdges[iEdge].y);
+
+        (meanX, meanY) = (meanX / numCellEdges, meanY / numCellEdges);
+
+        // initialize estimates
+        for (int iEdge = 0; iEdge < numCellEdges; ++iEdge)
+          estimates[iEdge] = (cellEdges[iEdge].x, cellEdges[iEdge].y);
+
+        // refine mean
+        for (int its = 5; its >= 0; --its)
         {
-          float sumxs = 0f, sumys = 0f;
-          for (int iRow = 0; iRow < numCellEdges; ++iRow)
+          float newMeanX = 0, newMeanY = 0;
+
+          // estimate new mean by projecting previous mean onto each edge tangent line at (x, y) + t(dx, dy)
+          for (int iEdge = 0; iEdge < numCellEdges; ++iEdge)
           {
-            var (x, y, _, _) = cellEdges[iRow];
-            sumxs += x;
-            sumys += y;
+            var (opx, opy) = (meanX - cellEdges[iEdge].x, meanY - cellEdges[iEdge].y);
+            var t = opx * cellEdges[iEdge].dx + opy * cellEdges[iEdge].dy;
+            estimates[iEdge] = (cellEdges[iEdge].x + t * cellEdges[iEdge].dx, cellEdges[iEdge].y + t * cellEdges[iEdge].dy);
+            (newMeanX, newMeanY) = (newMeanX + estimates[iEdge].x, newMeanY + estimates[iEdge].y);
           }
 
-          meanx = sumxs / numCellEdges;
-          meany = sumys / numCellEdges;
+          // update refined mean
+          (meanX, meanY) = (newMeanX / numCellEdges, newMeanY / numCellEdges);
         }
 
-        if (constrain)
-        {
-          cellEdges[numCellEdges++] = (meanx, meany, constrainStrength, 0f);
-          cellEdges[numCellEdges++] = (meanx, meany, 0f, constrainStrength);
-        }
-
-        Matrix<float> A = new DenseMatrix(numCellEdges, 2);
-        for (int iRow = 0; iRow < numCellEdges; ++iRow)
-        {
-          var (_, _, nx, ny) = cellEdges[iRow];
-          A[iRow, 0] = nx;
-          A[iRow, 1] = ny;
-        }
-
-        Vector<float> b = new DenseVector(numCellEdges);
-        for (int iRow = 0; iRow < numCellEdges; ++iRow)
-        {
-          var (x, y, nx, ny) = cellEdges[iRow];
-          b[iRow] = x * nx + y * ny;
-        }
-
-        var pseudo = A.PseudoInverse();
-        var leastSquares = pseudo.Multiply(b);
-
-        return (leastSquares[0], leastSquares[1]);
+        return (meanX, meanY);
       }
 
       // locate vertices within grid cells
@@ -210,21 +199,29 @@ namespace marching_2d
             if (edgeExistencesX[yi, x])
             {
               var (nx, ny) = edgeNormalsX[yi, x];
-              cellEdges[numCellEdges++] = (edgePositionsX[yi, x], ys[yi], nx, ny);
+              cellEdges[numCellEdges++] = (edgePositionsX[yi, x], ys[yi], nx, ny, ny, -nx);
+              if (rp.gridPen is not null)
+                rp.graphics.DrawEllipse(rp.isopathPen, edgePositionsX[yi, x] - 1.5f, ys[yi] - 1.5f, 3, 3);
             }
 
           for (int xi = x; xi <= x + 1; ++xi)
             if (edgeExistencesY[y, xi])
             {
               var (nx, ny) = edgeNormalsY[y, xi];
-              cellEdges[numCellEdges++] = (xs[xi], edgePositionsY[y, xi], nx, ny);
+              cellEdges[numCellEdges++] = (xs[xi], edgePositionsY[y, xi], nx, ny, ny, -nx);
+              if (rp.gridPen is not null)
+                rp.graphics.DrawEllipse(rp.isopathPen, xs[xi] - 1.5f, edgePositionsY[y, xi] - 1.5f, 3, 3);
             }
 
           bool vertexExists = numCellEdges != 0;
           vertexExistences[y, x] = vertexExists;
 
           if (vertexExists)
+          {
             vertexPositions[y, x] = estimateVertex();
+            if (rp.gridPen is not null)
+              rp.graphics.DrawEllipse(rp.isopathPen, vertexPositions[y, x].x - 1.5f, vertexPositions[y, x].y - 1.5f, 3, 3);
+          }
         }
 
       // draw isopath to image

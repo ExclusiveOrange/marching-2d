@@ -51,6 +51,7 @@
         <Reference Include="System.Xml" />
     </ItemGroup>
     <ItemGroup>
+        <Compile Include="DualContouring2.cs" />
         <Compile Include="RenderParameters.cs" />
         <Compile Include="DualContouring.cs" />
         <Compile Include="FieldFunction.cs" />
