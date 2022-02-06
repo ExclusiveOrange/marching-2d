@@ -12,8 +12,8 @@ namespace marching_2d
       imageHeight = 1000;
 
     private const int
-      gridWidth = 50,
-      gridHeight = 50;
+      gridWidth = 20,
+      gridHeight = 20;
 
     private const int
       triangleSideLength = 20;
@@ -36,7 +36,7 @@ namespace marching_2d
     private RendererAndImage[] renderersAndImages = null;
 
     private readonly Pen isopathPen = new(Color.Fuchsia, 2);
-    private readonly Pen gridPen = new(Color.Chocolate, 1); // set null to not draw grids
+    private readonly Pen gridPen = null; //new(Color.Chocolate, 1); // set null to not draw grids
 
     private const float
       xScale = 5f,
@@ -144,7 +144,8 @@ namespace marching_2d
           rp => DualContouring2.Draw(rp, gridWidth, gridHeight, FieldValueAt),
           new Bitmap(imageWidth, imageHeight, imageFormat)),
         new(
-          rp => MarchingTriangles.Draw(rp, triangleSideLength, FieldValueAt),
+          rp => DualContouring.Draw(rp, gridWidth, gridHeight, FieldValueAt),
+          // rp => MarchingTriangles.Draw(rp, triangleSideLength, FieldValueAt),
           new Bitmap(imageWidth, imageHeight, imageFormat))
       };
     }

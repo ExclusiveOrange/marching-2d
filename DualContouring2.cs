@@ -155,14 +155,61 @@ namespace marching_2d
       (float x, float y)
         estimateVertex()
       {
-        const float small = 0.001f;
-        float meanX = 0, meanY = 0;
+        // Vertex Estimation Algorithm
+        // for Dual Contouring
+        // Inspired by some forum post I read somewhere where the person claimed to follow the tangent lines.
+        // I didn't see the code but the idea seems simple at least in two dimensions.
+        //
+        // Concept:
+        //   estimate[0] is mean of edge intersections
+        //   estimate[1] is mean of projections of estimate[0] on edge intersection tangent lines
+        //   estimate[2] is mean of projections of estimate[1] on edge intersection tangent lines
+        //   .. and so on until we get tired.
+        //   Ideally this estimate gets better every iteration.
+        //
+        // Projection:
+        //   Let o: cell edge intersection position
+        //   Let p: point we want to project (mean of previous estimate)
+        //   Let d: normalized vector tangent to field gradient at o; i.e. d is an approximation of the isosurface at o
+        //   Let q: the point on (o + t*d) closest to p; i.e. the projection of p onto the estimated isosurface
+        //   Then since q is closest to p, and the estimated isosurface is a straight line,
+        //   it must be that (q -> p) is perpendicular to d; i.e. (p - q) dot d == 0.
+        //   Then:
+        //     (p - q) dot d == 0
+        //   equals
+        //     (p - (o + t*d)) dot d == 0
+        //     (p - o - t*d) dot d == 0
+        //     ...
+        //   solve for t:
+        //     t = ((p - o) dot d) / (d dot d)
+        //   Since d is normalized, it has length 1, thus (d dot d) == 1:
+        //     t = (p - o) dot d
+        //   Finally:
+        //     q = o + t*d
+        //
+        // Estimation:
+        //   mean of q's
+        //
+        // Stopping condition:
+        //   Currently stops after fixed number of iterations.
+        //   Perhaps ideally it should stop after max number of iterations
+        //   or when estimate[n] - estimate[n-1] is small.
+        //
+        // Bad behavior:
+        //   Not sure. Presumably though the vertex could wander outside of the cell in the right conditions.
+        //   One such condition is when there are two edge intersections for a cell, and their tangents intersect
+        //   beyond the cell. This can happen when the field features are smaller than the size of the cell.
+        //   In this case there is no ideal solution;
+        //     either we let the vertex be outside its cell, which may put it in the correct place,
+        //     or we clamp the vertex to the cell, which means it probably isn't following the isosurface.
+
+        var mean = (x: 0f, y: 0f);
 
         // measure initial mean
         for (int iEdge = 0; iEdge < numCellEdges; ++iEdge)
-          (meanX, meanY) = (meanX + cellEdges[iEdge].x, meanY + cellEdges[iEdge].y);
+          mean = (mean.x + cellEdges[iEdge].x, mean.y + cellEdges[iEdge].y);
 
-        (meanX, meanY) = (meanX / numCellEdges, meanY / numCellEdges);
+        mean = (mean.x / numCellEdges, mean.y / numCellEdges);
 
         // initialize estimates
         for (int iEdge = 0; iEdge < numCellEdges; ++iEdge)
@@ -171,22 +218,22 @@ namespace marching_2d
         // refine mean
         for (int its = 5; its >= 0; --its)
         {
-          float newMeanX = 0, newMeanY = 0;
+          var newMean = (x: 0f, y: 0f);
 
           // estimate new mean by projecting previous mean onto each edge tangent line at (x, y) + t(dx, dy)
           for (int iEdge = 0; iEdge < numCellEdges; ++iEdge)
           {
-            var (opx, opy) = (meanX - cellEdges[iEdge].x, meanY - cellEdges[iEdge].y);
-            var t = opx * cellEdges[iEdge].dx + opy * cellEdges[iEdge].dy;
+            var edge_to_mean = (x: mean.x - cellEdges[iEdge].x, y: mean.y - cellEdges[iEdge].y);
+            var t = edge_to_mean.x * cellEdges[iEdge].dx + edge_to_mean.y * cellEdges[iEdge].dy;
             estimates[iEdge] = (cellEdges[iEdge].x + t * cellEdges[iEdge].dx, cellEdges[iEdge].y + t * cellEdges[iEdge].dy);
-            (newMeanX, newMeanY) = (newMeanX + estimates[iEdge].x, newMeanY + estimates[iEdge].y);
+            newMean = (newMean.x + estimates[iEdge].x, newMean.y + estimates[iEdge].y);
           }
 
           // update refined mean
-          (meanX, meanY) = (newMeanX / numCellEdges, newMeanY / numCellEdges);
+          mean = (newMean.x / numCellEdges, newMean.y / numCellEdges);
         }
 
-        return (meanX, meanY);
+        return mean;
       }
 
       // locate vertices within grid cells
