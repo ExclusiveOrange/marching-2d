@@ -146,11 +146,8 @@ namespace marching_2d
 
       var vertexExistences = new bool[gridHeight, gridWidth];
       var vertexPositions = new (float x, float y)[gridHeight, gridWidth];
-      var cellEdges = new (float x, float y, float nx, float ny, float dx, float dy)[6];
-      var estimates = new (float x, float y)[6];
+      var cellEdges = new (float x, float y, float nx, float ny, float xy_dot_nxny)[6];
       int numCellEdges;
-
-      const int minNumCellEdges = constrain ? 2 : 0;
 
       (float x, float y)
         estimateVertex()
@@ -167,25 +164,9 @@ namespace marching_2d
         //   .. and so on until we get tired.
         //   Ideally this estimate gets better every iteration.
         //
-        // Projection:
-        //   Let o: cell edge intersection position
-        //   Let p: point we want to project (mean of previous estimate)
-        //   Let d: normalized vector tangent to field gradient at o; i.e. d is an approximation of the isosurface at o
-        //   Let q: the point on (o + t*d) closest to p; i.e. the projection of p onto the estimated isosurface
-        //   Then since q is closest to p, and the estimated isosurface is a straight line,
-        //   it must be that (q -> p) is perpendicular to d; i.e. (p - q) dot d == 0.
-        //   Then:
-        //     (p - q) dot d == 0
-        //   equals
-        //     (p - (o + t*d)) dot d == 0
-        //     (p - o - t*d) dot d == 0
-        //     ...
-        //   solve for t:
-        //     t = ((p - o) dot d) / (d dot d)
-        //   Since d is normalized, it has length 1, thus (d dot d) == 1:
-        //     t = (p - o) dot d
-        //   Finally:
-        //     q = o + t*d
+        // Projections:
+        //   For each edge intersection tangent line, the projection is the point on the line nearest the estimate
+        //   from the previous step.
         //
         // Estimation:
         //   mean of q's
@@ -211,22 +192,28 @@ namespace marching_2d
 
         mean = (mean.x / numCellEdges, mean.y / numCellEdges);
 
-        // initialize estimates
-        for (int iEdge = 0; iEdge < numCellEdges; ++iEdge)
-          estimates[iEdge] = (cellEdges[iEdge].x, cellEdges[iEdge].y);
-
         // refine mean
-        for (int its = 5; its >= 0; --its)
+        for (int its = 10; its >= 0; --its)
         {
           var newMean = (x: 0f, y: 0f);
 
           // estimate new mean by projecting previous mean onto each edge tangent line at (x, y) + t(dx, dy)
           for (int iEdge = 0; iEdge < numCellEdges; ++iEdge)
           {
-            var edge_to_mean = (x: mean.x - cellEdges[iEdge].x, y: mean.y - cellEdges[iEdge].y);
-            var t = edge_to_mean.x * cellEdges[iEdge].dx + edge_to_mean.y * cellEdges[iEdge].dy;
-            estimates[iEdge] = (cellEdges[iEdge].x + t * cellEdges[iEdge].dx, cellEdges[iEdge].y + t * cellEdges[iEdge].dy);
-            newMean = (newMean.x + estimates[iEdge].x, newMean.y + estimates[iEdge].y);
+            // Calculate the point on the edge intersection tangent line closest to the current mean.
+            // using a formula for a generalized nearest point to hyperplane
+            // from Wikipedia: https://en.wikipedia.org/w/index.php?title=Distance_from_a_point_to_a_plane&oldid=1052628003
+            //   x = y - [((y - p) dot a) / (a dot a)] * a
+            // where x is unknown nearest point to hyperplane from arbitrary point y,
+            // where p is a known point on the hyperplane and a is a known vector perpendicular to the plane (a normal)
+            // where (x - p) dot a = 0
+            //   and equivalently x dot a = p dot a = xy_dot_nxny
+            // In this case we know length(a) == 1 so we can simplify to:
+            //   x = y - (y dot a - d) * a
+            // where "x", "y", "a" and "p" are the symbols from the wikipedia page; substituted below for appropriate variable names.
+            var t = mean.x * cellEdges[iEdge].nx + mean.y * cellEdges[iEdge].ny - cellEdges[iEdge].xy_dot_nxny;
+            var nearest_point_on_line = (x: mean.x - t * cellEdges[iEdge].nx, y: mean.y - t * cellEdges[iEdge].ny);
+            newMean = (newMean.x + nearest_point_on_line.x, newMean.y + nearest_point_on_line.y);
           }
 
           // update refined mean
@@ -234,6 +221,11 @@ namespace marching_2d
         }
 
         return mean;
+      }
+
+      void SetCellEdge(int edgeIndex, float x, float y, float nx, float ny)
+      {
+        cellEdges[edgeIndex] = (x, y, nx, ny, x * nx + y * ny);
       }
 
       // locate vertices within grid cells
@@ -246,7 +238,7 @@ namespace marching_2d
             if (edgeExistencesX[yi, x])
             {
               var (nx, ny) = edgeNormalsX[yi, x];
-              cellEdges[numCellEdges++] = (edgePositionsX[yi, x], ys[yi], nx, ny, ny, -nx);
+              SetCellEdge(numCellEdges++, edgePositionsX[yi, x], ys[yi], nx, ny);
               if (rp.gridPen is not null)
                 rp.graphics.DrawEllipse(rp.isopathPen, edgePositionsX[yi, x] - 1.5f, ys[yi] - 1.5f, 3, 3);
             }
@@ -255,7 +247,7 @@ namespace marching_2d
             if (edgeExistencesY[y, xi])
             {
               var (nx, ny) = edgeNormalsY[y, xi];
-              cellEdges[numCellEdges++] = (xs[xi], edgePositionsY[y, xi], nx, ny, ny, -nx);
+              SetCellEdge(numCellEdges++, xs[xi], edgePositionsY[y, xi], nx, ny);
               if (rp.gridPen is not null)
                 rp.graphics.DrawEllipse(rp.isopathPen, xs[xi] - 1.5f, edgePositionsY[y, xi] - 1.5f, 3, 3);
             }
